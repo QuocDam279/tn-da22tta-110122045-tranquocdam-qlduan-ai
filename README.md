@@ -175,4 +175,4 @@ Nếu bạn ở trên Windows và đã cài đặt `cloudflared` CLI, bạn có 
 ```cmd
 start.bat
 ```
-File script này sẽ tự động khởi động các container Docker Compose ngầm, đồng thời tạo ra một Cloudflare Tunnel ánh xạ API Gateway (`http://localhost:5000`) ra internet thông qua tunnel tên `beaverdash-backend` để liên kết bên ngoài. Truy cập link: https:beaverdash.xyz
+File script này sẽ tự động khởi động các container Docker Compose ngầm, đồng thời tạo ra một Cloudflare Tunnel ánh xạ API Gateway (`http://localhost:5000`) ra internet thông qua tunnel tên `beaverdash-backend` để liên kết bên ngoài. Truy cập link: https://beaverdash.xyz
