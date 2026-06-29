@@ -1,0 +1,401 @@
+"use client";
+
+import * as React from "react";
+import { TaskItem, BoardColumn } from "@/types/task";
+import { api } from "@/lib/api";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { BoardTaskCard } from "./BoardTaskCard";
+import { useAlertConfirm } from "@/components/providers/AlertConfirmProvider";
+
+interface BoardColumnViewProps {
+  column: BoardColumn;
+  tasks: TaskItem[];
+  onTaskClick: (task: TaskItem) => void;
+  onRefresh: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveLeft: () => void;
+  onMoveRight: () => void;
+  onMoveColumn?: (sourceColumnId: string, targetColumnId: string) => void;
+  onSetWipLimit: () => void;
+  onDeleteColumn: () => void;
+  onMoveTask: (taskId: string, targetColumnId: string) => Promise<void>;
+  onSetColumnDone?: (columnId: string) => void;
+  assignees?: any[];
+  readOnly?: boolean;
+  isPersonalProject?: boolean;
+  projectStartDate?: string | null;
+  projectDueDate?: string | null;
+}
+
+export function BoardColumnView({
+  column,
+  tasks,
+  onTaskClick,
+  onRefresh,
+  isFirst,
+  isLast,
+  onMoveLeft,
+  onMoveRight,
+  onMoveColumn,
+  onSetWipLimit,
+  onDeleteColumn,
+  onMoveTask,
+  onSetColumnDone,
+  assignees = [],
+  readOnly = false,
+  isPersonalProject = false,
+  projectStartDate = null,
+  projectDueDate = null,
+}: BoardColumnViewProps) {
+  const { user: currentUser } = useAuth();
+  const { alert } = useAlertConfirm();
+  const [newTitle, setNewTitle] = React.useState("");
+  const [priority, setPriority] = React.useState("");
+  const [startDate, setStartDate] = React.useState("");
+  const [dueDate, setDueDate] = React.useState("");
+  const [isAdding, setIsAdding] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+  const [isColumnDraggingOver, setIsColumnDraggingOver] = React.useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (readOnly) return;
+    e.preventDefault();
+    
+    if (e.dataTransfer.types.includes("columnid")) {
+      setIsColumnDraggingOver(true);
+    } else if (e.dataTransfer.types.includes("taskid") || e.dataTransfer.types.includes("text/plain")) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = () => {
+    if (readOnly) return;
+    setIsDraggingOver(false);
+    setIsColumnDraggingOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    if (readOnly) return;
+    e.preventDefault();
+    setIsDraggingOver(false);
+    setIsColumnDraggingOver(false);
+
+    const draggedColId = e.dataTransfer.getData("columnid");
+    if (draggedColId) {
+      if (draggedColId !== column.id && onMoveColumn) {
+        onMoveColumn(draggedColId, column.id);
+      }
+      return;
+    }
+
+    const taskId = e.dataTransfer.getData("taskid");
+    const sourceColumnId = e.dataTransfer.getData("sourcecolumnid");
+    
+    if (taskId && sourceColumnId !== column.id) {
+      await onMoveTask(taskId, column.id);
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+
+    try {
+      await api.post("/tasks", {
+        boardColumnId: column.id,
+        title: newTitle.trim(),
+        priority: priority || null,
+        startDate: startDate ? new Date(startDate).toISOString() : null,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      });
+      setNewTitle("");
+      setPriority("");
+      setStartDate("");
+      setDueDate("");
+      setIsAdding(false);
+      onRefresh();
+    } catch (err: any) {
+      console.error("Failed to create task:", err);
+      alert(err.message || "Đã xảy ra lỗi khi tạo công việc.", "Thất bại", "danger");
+    }
+  };
+
+
+
+  const isWipExceeded = column.wipLimit !== null && column.wipLimit > 0 && tasks.length > column.wipLimit;
+
+  return (
+    <div 
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex flex-col rounded-lg p-3 min-h-[300px] h-full transition-all duration-200 border-2 ${
+        isColumnDraggingOver
+          ? "bg-slate-150/50 dark:bg-[#2c3338]/30 border-solid border-blue-500 dark:border-[#579dff] scale-[1.01]"
+          : isDraggingOver 
+            ? "bg-slate-200 dark:bg-[#2c3338]/50 border-dashed border-[#1868db] dark:border-[#579dff] scale-[1.01]" 
+            : isWipExceeded
+              ? "bg-[#fff5f5] dark:bg-red-950/10 border-red-200/60 dark:border-red-900/30 border-t-4 border-t-red-500"
+              : "bg-[#f4f5f7] dark:bg-[#22272b] border-transparent"
+      }`}
+    >
+      <div 
+        draggable={!readOnly}
+        onDragStart={(e) => {
+          if (readOnly) return;
+          e.dataTransfer.setData("columnid", column.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        className={`flex items-center justify-between mb-3 px-2 py-1.5 rounded-md transition-all border cursor-grab active:cursor-grabbing ${
+          isWipExceeded 
+            ? "bg-red-50/80 dark:bg-red-950/20 border-red-200/80 dark:border-red-900/40 text-red-700 dark:text-red-400" 
+            : "bg-transparent border border-transparent hover:border-slate-200/60 dark:hover:border-slate-700 text-[#505258] dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-[#1d2125]"
+        }`}
+        title="Kéo thả tiêu đề cột để thay đổi vị trí"
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          {column.isDone && (
+            <span className={`rounded-[4px] px-1 flex items-center justify-center scale-90 select-none font-bold ${
+              isWipExceeded 
+                ? "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/20 border border-red-300 dark:border-red-900/45" 
+                : "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250 dark:border-emerald-900/40"
+            }`} title="Cột hoàn thành">
+              ✓
+            </span>
+          )}
+          <span className={`text-xs font-bold tracking-wider uppercase truncate ${isWipExceeded ? "text-red-700 dark:text-red-400 font-extrabold" : "text-[#505258] dark:text-slate-350"}`} title={column.name}>
+            {column.name}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 relative">
+          {column.wipLimit && column.wipLimit > 0 ? (
+            <span 
+              className={`text-xs font-bold px-2 py-0.5 rounded-full border transition-all ${
+                isWipExceeded
+                  ? "bg-red-600 dark:bg-red-700 text-white border-transparent"
+                  : "bg-slate-200/80 dark:bg-[#2c3338] text-[#6b6e76] dark:text-slate-400 border-transparent"
+              }`}
+              title={`Số lượng công việc: ${tasks.length} / Giới hạn WIP: ${column.wipLimit}${isWipExceeded ? " (Vượt giới hạn WIP!)" : ""}`}
+            >
+              {tasks.length}/{column.wipLimit}
+            </span>
+          ) : (
+            <span className="text-xs font-bold text-[#6b6e76] dark:text-slate-400 bg-slate-200/80 dark:bg-[#2c3338] px-2 py-0.5 rounded-full">
+              {tasks.length}
+            </span>
+          )}
+
+          {/* 3-dots context menu */}
+          {!readOnly && (
+            <div className="relative flex items-center">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={`p-1 rounded transition-colors cursor-pointer flex items-center justify-center border-0 bg-transparent ${
+                  isWipExceeded 
+                    ? "hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-450 hover:text-red-800 dark:hover:text-red-300" 
+                    : "hover:bg-slate-200 dark:hover:bg-[#2c3338] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                }`}
+                title="Thao tác cột"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="1.5"></circle>
+                  <circle cx="12" cy="12" r="1.5"></circle>
+                  <circle cx="12" cy="19" r="1.5"></circle>
+                </svg>
+              </button>
+
+              {isMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-44 rounded-md border border-slate-200 dark:border-[#353e47] bg-white dark:bg-[#2c3338] shadow-lg z-20 py-1 text-[11px] text-[#292a2e] dark:text-[#deebff]">
+                    <button
+                      disabled={isFirst}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onMoveLeft();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#353e47] disabled:opacity-40 disabled:hover:bg-transparent font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed border-0 bg-transparent text-[#292a2e] dark:text-[#deebff]"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                      </svg>
+                      Dịch sang trái
+                    </button>
+                    <button
+                      disabled={isLast}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onMoveRight();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#353e47] disabled:opacity-40 disabled:hover:bg-transparent font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed border-0 bg-transparent text-[#292a2e] dark:text-[#deebff]"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                      </svg>
+                      Dịch sang phải
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onSetWipLimit();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#353e47] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border-0 bg-transparent text-[#292a2e] dark:text-[#deebff]"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                      </svg>
+                      Thiết đặt WIP
+                    </button>
+                    {!column.isDone && onSetColumnDone && (
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onSetColumnDone(column.id);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-slate-100 dark:hover:bg-[#353e47] font-semibold text-emerald-600 dark:text-emerald-450 flex items-center gap-1.5 transition-colors cursor-pointer border-0 bg-transparent"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Đặt làm cột hoàn thành
+                      </button>
+                    )}
+                    <div className="border-t border-slate-100 dark:border-[#353e47] my-1" />
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onDeleteColumn();
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 font-bold flex items-center gap-1.5 transition-colors cursor-pointer border-0 bg-transparent"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                      Xóa cột
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col gap-2.5">
+        {tasks.length > 0 ? (
+          tasks.map((task) => (
+            <BoardTaskCard
+              key={task.id}
+              task={task}
+              column={column}
+              onTaskClick={onTaskClick}
+              currentUser={currentUser}
+              assignees={assignees}
+              readOnly={readOnly}
+              isPersonalProject={isPersonalProject}
+            />
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-6 text-center border-2 border-dashed border-slate-200/50 dark:border-[#353e47]/50 rounded-lg text-slate-400 dark:text-slate-500 text-xs">
+            Không có công việc
+          </div>
+        )}
+      </div>
+
+      {!readOnly && (
+        <div className="mt-3">
+          {isAdding ? (
+            <form onSubmit={handleCreateTask} className="space-y-2.5 bg-white dark:bg-[#2c3338] p-3 rounded-lg border border-slate-200 dark:border-[#353e47] shadow-sm animate-in fade-in duration-200">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Tiêu đề công việc</label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Nhập tiêu đề..."
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-[#353e47] rounded-[4px] bg-white dark:bg-[#22272b] text-[#292a2e] dark:text-[#deebff] focus:outline-none focus:ring-1 focus:ring-[#1868db] dark:focus:ring-[#579dff]"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Độ ưu tiên</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-[#353e47] rounded-[4px] bg-white dark:bg-[#22272b] text-[#292a2e] dark:text-[#deebff] focus:outline-none focus:ring-1 focus:ring-[#1868db] dark:focus:ring-[#579dff] cursor-pointer"
+                >
+                  <option value="">Không có</option>
+                  <option value="Required">Bắt buộc</option>
+                  <option value="Important">Quan trọng</option>
+                  <option value="Extended">Mở rộng</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Ngày bắt đầu</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    min={projectStartDate ? projectStartDate.substring(0, 10) : undefined}
+                    max={dueDate ? dueDate : (projectDueDate ? projectDueDate.substring(0, 10) : undefined)}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-[#353e47] rounded-[4px] bg-white dark:bg-[#22272b] text-[#292a2e] dark:text-[#deebff] focus:outline-none focus:ring-1 focus:ring-[#1868db] dark:focus:ring-[#579dff] cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Hạn chót</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    min={startDate ? startDate : (projectStartDate ? projectStartDate.substring(0, 10) : undefined)}
+                    max={projectDueDate ? projectDueDate.substring(0, 10) : undefined}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full px-2 py-1 text-xs border border-slate-300 dark:border-[#353e47] rounded-[4px] bg-white dark:bg-[#22272b] text-[#292a2e] dark:text-[#deebff] focus:outline-none focus:ring-1 focus:ring-[#1868db] dark:focus:ring-[#579dff] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdding(false);
+                    setNewTitle("");
+                    setPriority("");
+                    setStartDate("");
+                    setDueDate("");
+                  }}
+                  className="px-2 py-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#22272b] rounded border-0 bg-transparent cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-2.5 py-1 text-[11px] font-semibold bg-[#1868db] dark:bg-[#579dff] text-white dark:text-[#1d2125] rounded hover:bg-[#0052cc] dark:hover:bg-blue-400 border-0 cursor-pointer"
+                >
+                  Thêm
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="w-full py-1.5 text-xs text-[#505258] dark:text-slate-400 hover:text-[#1868db] dark:hover:text-[#579dff] hover:bg-slate-200/50 dark:hover:bg-[#2c3338]/50 rounded text-left px-2 font-semibold transition-colors"
+            >
+              + Thêm công việc
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
