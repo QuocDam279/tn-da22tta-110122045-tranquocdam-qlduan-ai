@@ -1,4 +1,4 @@
-# Beaverdash - Hệ Thống Quản Lý Dự Án Kanban Kết Hợp Sprint & Trợ Lý AI
+# Beaverdash - Hệ Thống Quản Lý Dự Án Tích Hợp Trợ Lý Ảo AI
 
 **Beaverdash** là một hệ thống quản lý công việc và dự án theo mô hình Kanban kết hợp Sprint, được xây dựng trên kiến trúc **Microservices** tách biệt, tích hợp với **Trợ lý AI thông minh** thông qua cơ chế Gọi công cụ (**Function Calling**).
 
@@ -6,8 +6,8 @@
 
 ## 1. Mục Tiêu Đồ Án
 
-*   **Quản lý dự án trực quan (Kanban & Sprint):** Cung cấp bảng Kanban kéo thả mượt mà, phân chia dự án theo các Sprint (hoặc Product Backlog), phân tách công việc chi tiết thành Task chính và Sub-task (checklist), hỗ trợ làm việc nhóm và thảo luận trực tiếp.
-*   **Trợ lý AI thông minh (Function Calling):** Tích hợp mô hình ngôn ngữ lớn (LLM - Google Gemini) để tự động hóa lập kế hoạch và khởi tạo công việc. AI giao tiếp với người dùng và có khả năng tự động gọi các API tạo Sprint, tạo Task, Sub-task, cập nhật trạng thái... tương tác trực tiếp với cơ sở dữ liệu dự án.
+*   **Quản lý dự án trực quan (Kanban & Sprint):** Cung cấp bảng Kanban kéo thả mượt mà, phân chia dự án theo các Sprint (hoặc Product Backlog), phân tách công việc chi tiết thành công việc chính và nhiệm vụ con, hỗ trợ làm việc nhóm và thảo luận trực tiếp.
+*   **Trợ lý AI thông minh (Function Calling):** Tích hợp mô hình ngôn ngữ lớn để tự động hóa lập kế hoạch và khởi tạo công việc. AI giao tiếp với người dùng và có khả năng tự động gọi các API tạo Sprint, tạo Task, Sub-task, cập nhật trạng thái... tương tác trực tiếp với cơ sở dữ liệu dự án.
 *   **Kiến trúc Microservices hiện đại:** Áp dụng các mẫu thiết kế **Clean Architecture, CQRS (MediatR), API Gateway (YARP), Event-driven Microservices (RabbitMQ)**, và cô lập dữ liệu hoàn toàn (**Database-per-Service**).
 *   **Thời gian thực (Real-time):** Gửi thông báo tức thời đến thành viên nhóm qua **SignalR (Websockets)** khi có thay đổi trạng thái công việc hoặc bình luận mới.
 
