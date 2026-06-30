@@ -1,4 +1,4 @@
-# Beaverdash - Hệ Thống Quản Lý Dự Án Kanban Tích Hợp Trợ Lý AI
+# Beaverdash - Hệ Thống Quản Lý Dự Án Tích Hợp Trợ Lý Ảo AI
 
 **Beaverdash** là một hệ thống quản lý công việc và dự án theo mô hình Kanban nâng cao, được xây dựng trên kiến trúc **Microservices** tách biệt, kết hợp với **Trợ lý AI thông minh** (hỗ trợ phân tích tài liệu và tự động tạo kế hoạch công việc).
 
